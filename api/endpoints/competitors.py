@@ -19,7 +19,7 @@ try:
         CompetitorUpdate,
         CompetitorStats
     )
-    from shared.utils.bigquery_client import BigQueryClient
+    from src.utils.bigquery_client import BigQueryClient
 except ImportError:
     from ..models.competitor import (
         CompetitorModel, 
@@ -28,7 +28,7 @@ except ImportError:
         CompetitorStats
     )
     try:
-        from ...shared.utils.bigquery_client import BigQueryClient
+        from ...src.utils.bigquery_client import BigQueryClient
     except ImportError:
         # BigQuery 클라이언트가 없는 경우 더미 클래스 사용
         class BigQueryClient:
