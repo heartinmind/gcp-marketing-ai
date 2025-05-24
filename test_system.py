@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from config.config import PROJECT_ID, DATASET_ID
 from src.data_collection.web_scraper import WebScraper
 from src.utils.bigquery_client import BigQueryClient
-from analytics.engines.basic_analyzer import BasicAnalyzer
+from src.analysis.basic_analyzer import BasicAnalyzer
 
 # 로깅 설정
 logging.basicConfig(

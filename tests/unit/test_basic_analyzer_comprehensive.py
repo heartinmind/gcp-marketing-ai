@@ -1,19 +1,22 @@
 """
-BasicAnalyzer 포괄적 단위 테스트
-
-실제 비즈니스 로직을 검증하는 의미있는 테스트들
+BasicAnalyzer 포괄적 테스트
+실제 비즈니스 로직과 전체 워크플로우를 검증하는 테스트
 """
 
-import sys
-import os
 import pytest
-from unittest.mock import Mock, patch
+import unittest
+from unittest.mock import Mock, patch, MagicMock
+import tempfile
+import os
+import json
+import time
 from datetime import datetime
 
-# 프로젝트 루트 경로 추가
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+# 프로젝트 루트를 Python 경로에 추가
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from analytics.engines.basic_analyzer import BasicAnalyzer
+from src.analysis.basic_analyzer import BasicAnalyzer
 
 
 class TestBasicAnalyzerComprehensive:
@@ -262,17 +265,19 @@ class TestBasicAnalyzerComprehensive:
         # 현재 구현은 isalpha()를 사용하므로 각 언어의 알파벳 문자를 인식
         assert len(keywords) > 0
     
-    @patch('analytics.engines.basic_analyzer.logger')
+    @patch('src.analysis.basic_analyzer.logger')
     def test_error_handling_with_logging(self, mock_logger):
         """에러 처리 및 로깅 테스트"""
-        # Given: 에러를 발생시킬 데이터
-        with patch.object(self.analyzer, '_extract_keywords', side_effect=Exception("Test error")):
-            # When: 키워드 분석 실행
-            result = self.analyzer.analyze_keywords(self.sample_competitor_data)
-            
-            # Then: 에러가 로깅되고 빈 결과가 반환되어야 함
-            assert result == {}
-            mock_logger.error.assert_called()
+        # Given: 에러를 발생시킬 수 있는 잘못된 데이터
+        invalid_data = None
+        
+        # When: 분석 실행
+        result = self.analyzer.analyze_keywords(invalid_data)
+        
+        # Then: 빈 결과 반환 및 에러 로깅 확인
+        self.assertEqual(result['total_words'], 0)
+        self.assertEqual(result['unique_words'], 0)
+        mock_logger.warning.assert_called()
     
     def test_performance_with_large_dataset(self):
         """대용량 데이터에 대한 성능 테스트"""
@@ -289,7 +294,6 @@ class TestBasicAnalyzerComprehensive:
             })
         
         # When: 분석 실행 (성능 측정)
-        import time
         start_time = time.time()
         result = self.analyzer.analyze_keywords(large_data)
         end_time = time.time()

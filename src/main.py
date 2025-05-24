@@ -10,14 +10,14 @@ from datetime import datetime
 import hashlib
 
 # 프로젝트 루트를 Python 경로에 추가
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from config.config import (
     PROJECT_ID, DATASET_ID, COMPETITORS, REQUEST_DELAY, LOG_LEVEL
 )
 from src.data_collection.web_scraper import WebScraper
 from src.utils.bigquery_client import BigQueryClient
-from analytics.engines.basic_analyzer import BasicAnalyzer
+from src.analysis.basic_analyzer import BasicAnalyzer
 
 # 로깅 설정
 logging.basicConfig(

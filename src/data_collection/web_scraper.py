@@ -42,6 +42,19 @@ class WebScraper:
         Returns:
             스크래핑된 데이터 딕셔너리 또는 None
         """
+        return self._scrape_page(url, competitor_name)
+    
+    def _scrape_page(self, url: str, competitor_name: str) -> Optional[Dict]:
+        """
+        단일 페이지를 스크래핑합니다. (Private 메서드)
+        
+        Args:
+            url: 스크래핑할 URL
+            competitor_name: 경쟁사 이름
+            
+        Returns:
+            스크래핑된 데이터 딕셔너리 또는 None
+        """
         try:
             logger.info(f"스크래핑 시작: {url}")
             
@@ -64,12 +77,13 @@ class WebScraper:
             
             # 콘텐츠 해시 생성
             content_for_hash = f"{page_data['page_title']}{page_data['content']}"
-            page_data['content_hash'] = hashlib.md5(
-                content_for_hash.encode('utf-8')
-            ).hexdigest()
+            page_data['content_hash'] = self._generate_content_hash(content_for_hash)
             
             logger.info(f"스크래핑 완료: {url}")
-            time.sleep(self.delay)
+            
+            # Rate limiting
+            if self.delay > 0:
+                time.sleep(self.delay)
             
             return page_data
             
@@ -94,7 +108,7 @@ class WebScraper:
         
         for page_path in target_pages:
             full_url = base_url.rstrip('/') + page_path
-            page_data = self.scrape_page(full_url, competitor_name)
+            page_data = self._scrape_page(full_url, competitor_name)
             
             if page_data:
                 results.append(page_data)
@@ -127,4 +141,8 @@ class WebScraper:
         meta_desc = soup.find('meta', attrs={'name': 'description'})
         if meta_desc:
             return meta_desc.get('content', '').strip()
-        return "" 
+        return ""
+    
+    def _generate_content_hash(self, content: str) -> str:
+        """콘텐츠 해시 생성"""
+        return hashlib.md5(content.encode('utf-8')).hexdigest() 

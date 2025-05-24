@@ -12,8 +12,8 @@ sys.path.insert(0, os.getcwd())
 def test_instagram_collector():
     """Instagram 컬렉터 테스트"""
     try:
-        # 경로 수정
-        sys.path.append('data-pipelines')
+        # 경로 수정 (data_pipelines로 변경)
+        sys.path.append('data_pipelines')
         from collectors.social_media.instagram.collector import InstagramCollector
         
         print("🔍 Instagram 컬렉터 테스트 시작...")
@@ -47,7 +47,8 @@ def test_api_module():
 def test_bigquery_client():
     """BigQuery 클라이언트 테스트"""
     try:
-        from shared.utils.bigquery_client import BigQueryClient
+        # shared.utils에서 src.utils로 수정
+        from src.utils.bigquery_client import BigQueryClient
         
         # 테스트용 클라이언트 생성
         client = BigQueryClient("test-project", "test-dataset")
