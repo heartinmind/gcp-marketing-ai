@@ -1,0 +1,44 @@
+[
+  {
+    "name": "id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "분석 결과 고유 식별자"
+  },
+  {
+    "name": "competitor_name",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "경쟁사 이름"
+  },
+  {
+    "name": "analysis_type",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "분석 유형 (keyword, pricing, content 등)"
+  },
+  {
+    "name": "analysis_date",
+    "type": "DATE",
+    "mode": "REQUIRED",
+    "description": "분석 날짜"
+  },
+  {
+    "name": "results",
+    "type": "JSON",
+    "mode": "NULLABLE",
+    "description": "분석 결과 (JSON 형태)"
+  },
+  {
+    "name": "summary",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "분석 요약"
+  },
+  {
+    "name": "created_at",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "결과 생성 시간"
+  }
+] 
