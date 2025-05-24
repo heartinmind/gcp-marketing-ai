@@ -1,0 +1,50 @@
+[
+  {
+    "name": "id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "고유 식별자"
+  },
+  {
+    "name": "competitor_name",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "경쟁사 이름"
+  },
+  {
+    "name": "url",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "수집된 페이지 URL"
+  },
+  {
+    "name": "page_title",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "페이지 제목"
+  },
+  {
+    "name": "content",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "페이지 텍스트 콘텐츠"
+  },
+  {
+    "name": "meta_description",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "메타 설명"
+  },
+  {
+    "name": "collected_at",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "데이터 수집 시간"
+  },
+  {
+    "name": "content_hash",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "콘텐츠 해시값 (중복 체크용)"
+  }
+] 
