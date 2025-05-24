@@ -1,0 +1,135 @@
+{
+  "folders": [
+    {
+      "name": "🏗️ Infrastructure",
+      "path": "./infra"
+    },
+    {
+      "name": "📊 Data Pipelines",
+      "path": "./data-pipelines"
+    },
+    {
+      "name": "🔬 Analytics",
+      "path": "./analytics"
+    },
+    {
+      "name": "🚀 API Server",
+      "path": "./api"
+    },
+    {
+      "name": "💻 Dashboard",
+      "path": "./dashboard"
+    },
+    {
+      "name": "📧 Notifications",
+      "path": "./notifications"
+    },
+    {
+      "name": "🤖 ML Models",
+      "path": "./ml"
+    },
+    {
+      "name": "🔧 Shared",
+      "path": "./shared"
+    },
+    {
+      "name": "⚙️ Config",
+      "path": "./config"
+    },
+    {
+      "name": "🧪 Tests",
+      "path": "./tests"
+    }
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "./venv/bin/python",
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.formatting.provider": "black",
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    },
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/*.pyc": true,
+      "**/node_modules": true,
+      "**/.git": true,
+      "**/.DS_Store": true,
+      "**/venv": true,
+      "**/.pytest_cache": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/venv": true,
+      "**/.git": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python",
+      "ms-python.black-formatter",
+      "ms-python.pylint",
+      "bradlc.vscode-tailwindcss",
+      "esbenp.prettier-vscode",
+      "ms-vscode.vscode-typescript-next",
+      "hashicorp.terraform",
+      "ms-kubernetes-tools.vscode-kubernetes-tools",
+      "ms-vscode.docker"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Install Python Dependencies",
+        "type": "shell",
+        "command": "pip install -r requirements.txt",
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        }
+      },
+      {
+        "label": "Run Tests",
+        "type": "shell",
+        "command": "python -m pytest tests/",
+        "group": "test",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        }
+      },
+      {
+        "label": "Start API Server",
+        "type": "shell",
+        "command": "cd api && uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        }
+      },
+      {
+        "label": "Start Dashboard",
+        "type": "shell",
+        "command": "cd dashboard && npm run dev",
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        }
+      }
+    ]
+  }
+} 

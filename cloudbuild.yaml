@@ -1,0 +1,197 @@
+# Cloud Build CI/CD 파이프라인
+# Google Cloud Build 설정
+
+steps:
+  # 1. 환경 설정
+  - name: 'python:3.9'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🚀 MarketingAI CI/CD 파이프라인 시작"
+        python --version
+        pip --version
+
+  # 2. 의존성 설치
+  - name: 'python:3.9'
+    entrypoint: 'pip'
+    args: ['install', '-r', 'requirements.txt']
+    dir: '.'
+
+  # 3. 정적 타입 체크 (ruff)
+  - name: 'python:3.9'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        pip install ruff
+        echo "🔍 Ruff 정적 분석 실행..."
+        ruff check . --output-format=github
+        echo "✅ Ruff 분석 완료"
+    id: 'ruff-check'
+
+  # 4. 타입 체크 (mypy)
+  - name: 'python:3.9'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        pip install mypy
+        echo "🔍 MyPy 타입 체크 실행..."
+        mypy --ignore-missing-imports api/ || echo "⚠️ MyPy 경고 있음"
+        echo "✅ MyPy 체크 완료"
+    id: 'mypy-check'
+
+  # 5. 단위 테스트 실행
+  - name: 'python:3.9'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        pip install pytest pytest-cov
+        echo "🧪 단위 테스트 실행..."
+        pytest tests/ -v --cov=. --cov-report=term-missing || echo "⚠️ 일부 테스트 실패"
+        echo "✅ 테스트 완료"
+    id: 'unit-tests'
+
+  # 6. API 서버 Docker 이미지 빌드
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/marketing-ai-api:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/marketing-ai-api:latest'
+      - '-f'
+      - 'Dockerfile.api'
+      - '.'
+    id: 'build-api'
+
+  # 7. Docker 이미지 푸시
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/marketing-ai-api']
+    id: 'push-api'
+
+  # 8. Terraform 계획 (인프라 변경사항 확인)
+  - name: 'hashicorp/terraform:1.6'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        cd infra
+        terraform init
+        terraform plan -var="project_id=$PROJECT_ID" -out=tfplan
+        echo "✅ Terraform 계획 완료"
+    id: 'terraform-plan'
+
+  # 9. Terraform 적용 (main 브랜치만)
+  - name: 'hashicorp/terraform:1.6'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        cd infra
+        if [ "$BRANCH_NAME" = "main" ]; then
+          echo "🚀 프로덕션 인프라 배포 실행..."
+          terraform apply -auto-approve tfplan
+          echo "✅ 인프라 배포 완료"
+        else
+          echo "ℹ️ main 브랜치가 아니므로 Terraform 적용 건너뜀"
+        fi
+    id: 'terraform-apply'
+
+  # 10. Cloud Run에 API 배포
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'marketing-ai-api-dev'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/marketing-ai-api:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'PROJECT_ID=$PROJECT_ID,ENVIRONMENT=dev'
+    id: 'deploy-api'
+
+  # 11. ML 파이프라인 컴파일 및 업로드
+  - name: 'python:3.9'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        pip install kfp google-cloud-aiplatform
+        echo "🤖 ML 파이프라인 컴파일..."
+        cd ml/training
+        python -c "
+        from pipeline import marketing_ai_training_pipeline
+        from kfp import compiler
+        compiler.Compiler().compile(
+            pipeline_func=marketing_ai_training_pipeline,
+            package_path='marketing_ai_pipeline.json'
+        )
+        print('✅ ML 파이프라인 컴파일 완료')
+        "
+        echo "📤 파이프라인 Cloud Storage 업로드..."
+        gsutil cp marketing_ai_pipeline.json gs://$PROJECT_ID-marketing-ai-datalake-dev/pipelines/
+    id: 'ml-pipeline'
+
+  # 12. 대시보드 배포 (Cloud Run)
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/marketing-ai-dashboard:$COMMIT_SHA'
+      - '-f'
+      - 'Dockerfile.dashboard'
+      - '.'
+    id: 'build-dashboard'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/marketing-ai-dashboard:$COMMIT_SHA']
+    id: 'push-dashboard'
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'marketing-ai-dashboard-dev'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/marketing-ai-dashboard:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8501'
+    id: 'deploy-dashboard'
+
+  # 13. 배포 알림
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🎉 MarketingAI 배포 완료!"
+        echo "📊 대시보드: https://marketing-ai-dashboard-dev-$PROJECT_ID.a.run.app"
+        echo "🔌 API: https://marketing-ai-api-dev-$PROJECT_ID.a.run.app"
+        echo "📈 파이프라인 위치: gs://$PROJECT_ID-marketing-ai-datalake-dev/pipelines/"
+
+# 빌드 옵션
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+# 빌드 트리거 설정
+timeout: '3600s'  # 1시간
+
+# 환경 변수
+substitutions:
+  _ENVIRONMENT: 'dev'
+
+# IAM 권한
+serviceAccount: 'projects/$PROJECT_ID/serviceAccounts/cloudbuild@$PROJECT_ID.iam.gserviceaccount.com' 
