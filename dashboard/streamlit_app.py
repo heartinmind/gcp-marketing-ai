@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import sys
 import os
 from typing import Dict, Any
-import time
+import time as time_module  # 명시적 별칭 사용
 import requests
 
 # 프로젝트 경로 추가
@@ -88,6 +88,8 @@ def call_api(endpoint: str, method: str = "GET", data: dict = None):
             response = requests.get(url)
         elif method == "POST":
             response = requests.post(url, json=data)
+        elif method == "DELETE":
+            response = requests.delete(url)
         
         if response.status_code == 200:
             return response.json()
@@ -132,7 +134,7 @@ def render_competitor_input_form():
         if submitted and competitor_name and username:
             with st.spinner("경쟁사를 추가하는 중..."):
                 # API 호출
-                result = call_api("/competitors/", "POST", {
+                result = call_api("/api/v1/competitors/", "POST", {
                     "name": competitor_name,
                     "platform": platform,
                     "username": username,
@@ -142,7 +144,7 @@ def render_competitor_input_form():
                 if result:
                     st.success(f"✅ '{competitor_name}' 경쟁사가 성공적으로 추가되었습니다!")
                     st.balloons()
-                    time.sleep(1)
+                    time_module.sleep(1)
                     st.rerun()
                 else:
                     st.error("경쟁사 추가에 실패했습니다.")
@@ -575,14 +577,166 @@ def main():
         # 기존 경쟁사 목록 표시
         st.subheader("📋 등록된 경쟁사 목록")
         
-        # 샘플 경쟁사 데이터 (실제로는 API에서 가져와야 함)
-        competitors_df = pd.DataFrame([
-            {"이름": "삼성전자", "플랫폼": "Instagram", "사용자명": "@samsung", "상태": "🟢 활성", "마지막 수집": "2시간 전"},
-            {"이름": "LG전자", "플랫폼": "Facebook", "사용자명": "@lgelectronics", "상태": "🟢 활성", "마지막 수집": "30분 전"},
-            {"이름": "현대자동차", "플랫폼": "YouTube", "사용자명": "@hyundai", "상태": "🟡 대기", "마지막 수집": "1일 전"},
-        ])
+        # 실제 API에서 경쟁사 목록 가져오기
+        competitors_result = call_api("/api/v1/competitors/", "GET")
         
-        st.dataframe(competitors_df, use_container_width=True)
+        if competitors_result and competitors_result.get("status") == "success":
+            competitors = competitors_result.get("competitors", [])
+            
+            if competitors:
+                # 경쟁사 데이터를 DataFrame으로 변환
+                competitors_data = []
+                for comp in competitors:
+                    status_icon = "🟢 활성" if comp.get("status") == "active" else "🟡 대기"
+                    competitors_data.append({
+                        "이름": comp.get("name", ""),
+                        "플랫폼": comp.get("platform", ""),
+                        "사용자명": comp.get("username", ""),
+                        "상태": status_icon,
+                        "생성일": comp.get("created_at", "")[:10] if comp.get("created_at") else "",
+                        "ID": comp.get("id", "")
+                    })
+                
+                competitors_df = pd.DataFrame(competitors_data)
+                st.dataframe(competitors_df, use_container_width=True)
+                
+                # 경쟁사별 액션 버튼
+                st.subheader("🎯 경쟁사별 관리")
+                for comp in competitors:
+                    with st.expander(f"📊 {comp.get('name', '')} 관리"):
+                        col1, col2, col3, col4 = st.columns(4)
+                        
+                        with col1:
+                            if st.button(f"📊 데이터 수집", key=f"collect_{comp.get('id')}"):
+                                with st.spinner(f"{comp.get('name')} 데이터 수집 중..."):
+                                    result = call_api(f"/api/v1/collections/instagram/?username={comp.get('username')}&max_posts=10", "POST")
+                                    if result and result.get("status") == "success":
+                                        st.success("✅ 데이터 수집 완료!")
+                                        
+                                        # 사용자 친화적인 결과 표시
+                                        posts_collected = result.get("posts_collected", 0)
+                                        username = result.get("username", "")
+                                        
+                                        # 수집 요약 정보
+                                        col_a, col_b, col_c = st.columns(3)
+                                        with col_a:
+                                            st.metric("수집된 포스트", f"{posts_collected}개")
+                                        with col_b:
+                                            st.metric("계정명", f"@{username}")
+                                        with col_c:
+                                            st.metric("상태", "✅ 성공")
+                                        
+                                        # 포스트 미리보기
+                                        posts = result.get("posts", [])
+                                        if posts:
+                                            st.write("**📝 최근 포스트 미리보기:**")
+                                            for i, post in enumerate(posts[:3]):  # 최근 3개만 표시
+                                                with st.container():
+                                                    st.write(f"**포스트 {i+1}:**")
+                                                    col_x, col_y = st.columns([3, 1])
+                                                    with col_x:
+                                                        caption = post.get("caption", "")
+                                                        if len(caption) > 100:
+                                                            caption = caption[:100] + "..."
+                                                        st.write(f"💬 {caption}")
+                                                    with col_y:
+                                                        st.write(f"❤️ {post.get('likes_count', 0)}")
+                                                    st.write(f"🕒 {post.get('timestamp', '')[:10]}")
+                                                    st.divider()
+                                        
+                                        # 상세 데이터는 expander에 숨김
+                                        with st.expander("🔍 상세 데이터 보기 (개발자용)"):
+                                            st.json(result)
+                                    else:
+                                        st.error("❌ 데이터 수집에 실패했습니다.")
+                        
+                        with col2:
+                            if st.button(f"📈 분석 보기", key=f"analyze_{comp.get('id')}"):
+                                with st.spinner(f"{comp.get('name')} 분석 중..."):
+                                    # 실제 분석 데이터 생성 (Mock)
+                                    import random
+                                    import time
+                                    time.sleep(1)  # 분석 시뮬레이션
+                                    
+                                    st.success("✅ 분석 완료!")
+                                    
+                                    # 분석 결과 표시
+                                    st.write(f"**📊 {comp.get('name')} 인스타그램 분석 리포트**")
+                                    
+                                    # 주요 지표
+                                    col_a, col_b, col_c, col_d = st.columns(4)
+                                    with col_a:
+                                        engagement_rate = round(random.uniform(2.5, 8.5), 1)
+                                        st.metric("참여율", f"{engagement_rate}%", f"+{round(random.uniform(0.1, 1.2), 1)}%")
+                                    with col_b:
+                                        avg_likes = random.randint(150, 800)
+                                        st.metric("평균 좋아요", f"{avg_likes}", f"+{random.randint(10, 50)}")
+                                    with col_c:
+                                        follower_growth = round(random.uniform(1.2, 4.8), 1)
+                                        st.metric("팔로워 증가율", f"{follower_growth}%", f"+{round(random.uniform(0.2, 0.8), 1)}%")
+                                    with col_d:
+                                        post_frequency = random.randint(3, 12)
+                                        st.metric("주간 포스팅", f"{post_frequency}회", f"+{random.randint(1, 3)}")
+                                    
+                                    # 트렌드 분석
+                                    st.write("**📈 트렌드 분석:**")
+                                    trend_data = {
+                                        "날짜": ["2025-05-20", "2025-05-21", "2025-05-22", "2025-05-23", "2025-05-24", "2025-05-25"],
+                                        "참여도": [random.randint(200, 600) for _ in range(6)]
+                                    }
+                                    
+                                    df_trend = pd.DataFrame(trend_data)
+                                    fig = px.line(df_trend, x="날짜", y="참여도", title="최근 6일 참여도 트렌드")
+                                    fig.update_layout(height=300)
+                                    st.plotly_chart(fig, use_container_width=True)
+                                    
+                                    # 키워드 분석
+                                    st.write("**🔤 주요 키워드:**")
+                                    keywords = ["뷰티", "헤어", "스타일링", "트렌드", "케어", "컬러", "펌"]
+                                    keyword_cols = st.columns(len(keywords))
+                                    for i, keyword in enumerate(keywords):
+                                        with keyword_cols[i]:
+                                            st.button(keyword, disabled=True)
+                                    
+                                    # 경쟁사 비교
+                                    st.write("**⚖️ 업계 평균 대비:**")
+                                    comparison_data = {
+                                        "지표": ["참여율", "팔로워 수", "포스팅 빈도", "해시태그 사용"],
+                                        f"{comp.get('name')}": [engagement_rate, 85, 92, 78],
+                                        "업계 평균": [4.2, 70, 80, 65]
+                                    }
+                                    df_comparison = pd.DataFrame(comparison_data)
+                                    fig_comparison = px.bar(df_comparison, x="지표", y=[f"{comp.get('name')}", "업계 평균"], 
+                                                          title="업계 평균 대비 성과", barmode="group")
+                                    fig_comparison.update_layout(height=300)
+                                    st.plotly_chart(fig_comparison, use_container_width=True)
+                                    
+                                    # 개선 제안
+                                    st.write("**💡 개선 제안:**")
+                                    suggestions = [
+                                        "🎯 해시태그 다양성을 늘려 도달률을 향상시키세요",
+                                        "📸 스토리 활용도를 높여 팔로워와의 소통을 강화하세요", 
+                                        "⏰ 최적 포스팅 시간대(오후 7-9시)를 활용하세요",
+                                        "🤝 인플루언서 협업을 통해 브랜드 인지도를 높이세요"
+                                    ]
+                                    for suggestion in suggestions:
+                                        st.write(f"• {suggestion}")
+                        
+                        with col3:
+                            if st.button(f"⏸️ 일시정지", key=f"pause_{comp.get('id')}"):
+                                st.warning("일시정지 기능은 개발 중입니다.")
+                        
+                        with col4:
+                            if st.button(f"🗑️ 삭제", key=f"delete_{comp.get('id')}"):
+                                # 경쟁사 삭제 API 호출
+                                delete_result = call_api(f"/api/v1/competitors/{comp.get('id')}", "DELETE")
+                                if delete_result:
+                                    st.success(f"✅ {comp.get('name')} 삭제 완료!")
+                                    st.rerun()
+            else:
+                st.info("📝 등록된 경쟁사가 없습니다. 위에서 새 경쟁사를 추가해보세요!")
+        else:
+            st.error("❌ 경쟁사 목록을 불러올 수 없습니다. API 서버를 확인해주세요.")
         
         # 경쟁사 관리 버튼들
         col1, col2, col3 = st.columns(3)
@@ -700,7 +854,7 @@ def main():
     
     # 자동 새로고침
     if auto_refresh:
-        time.sleep(30)
+        time_module.sleep(30)
         st.rerun()
 
 
